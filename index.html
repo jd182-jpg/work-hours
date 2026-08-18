@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f2440">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hours">
+<title>Internship Hours</title>
+<link rel="manifest" href="manifest.json?v=1">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Internship Hours</h1>
+  <button id="syncBadge" class="badge" type="button" title="Excel sync status">Offline</button>
+</header>
+
+<main>
+
+  <!-- Setup gate: shown until config.js is filled in -->
+  <section id="setupCard" class="card warn" hidden>
+    <h2>Finish setup</h2>
+    <p id="setupMsg"></p>
+    <p class="hint">Fill in the Settings card below. Full steps are in the README.</p>
+  </section>
+
+  <!-- Current pay period -->
+  <section class="card period">
+    <div class="period-label">Current pay period</div>
+    <div id="periodRange" class="period-range">—</div>
+    <div class="period-total"><span id="periodHours">0.00</span><small>hrs</small></div>
+    <div class="period-meta">
+      <span><b id="periodDays">0</b> days worked</span>
+      <span><b id="periodAvg">0.00</b> avg / day</span>
+    </div>
+  </section>
+
+  <!-- Clock in / out -->
+  <section class="card">
+    <button id="clockBtn" class="clock-btn" type="button">Clock In</button>
+    <div id="clockStatus" class="clock-status" hidden>
+      Started <b id="clockStart">—</b> · <span id="clockElapsed">0:00:00</span>
+      <button id="clockCancel" class="link-btn" type="button">cancel</button>
+    </div>
+  </section>
+
+  <!-- Manual entry -->
+  <section class="card">
+    <h2>Add an entry</h2>
+    <form id="entryForm" novalidate>
+      <label for="fDate">Date</label>
+      <input type="date" id="fDate" required>
+
+      <div class="row">
+        <div>
+          <label for="fIn">Time In</label>
+          <input type="time" id="fIn" required>
+        </div>
+        <div>
+          <label for="fOut">Time Out</label>
+          <input type="time" id="fOut" required>
+        </div>
+      </div>
+
+      <label for="fNotes">Notes <small>(optional)</small></label>
+      <input type="text" id="fNotes" maxlength="120" placeholder="What you worked on">
+
+      <div id="formPreview" class="preview" hidden></div>
+      <div id="formError" class="error" hidden></div>
+
+      <button type="submit" class="primary">Save Entry</button>
+    </form>
+  </section>
+
+  <!-- Month lookup -->
+  <section class="card">
+    <h2>Any month</h2>
+    <div class="row">
+      <select id="mMonth" aria-label="Month"></select>
+      <select id="mYear" aria-label="Year"></select>
+    </div>
+    <table class="totals">
+      <tbody>
+        <tr><td>1st &ndash; 15th</td><td id="mFirst">0.00</td></tr>
+        <tr><td>16th &ndash; end</td><td id="mSecond">0.00</td></tr>
+        <tr class="grand"><td>Month total</td><td id="mTotal">0.00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Entries -->
+  <section class="card">
+    <h2>Entries <span id="entryScope" class="hint-inline"></span></h2>
+    <div id="entryList" class="entries"></div>
+  </section>
+
+
+  <!-- Settings: kept out of the repo so a public deploy carries no tenant details -->
+  <section class="card">
+    <h2>Settings</h2>
+    <p class="hint">Entered once per device and stored on this device only, never in the code.</p>
+    <label for="sClient">Application (client) ID</label>
+    <input type="text" id="sClient" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000">
+
+    <label for="sTenant">Directory (tenant) ID</label>
+    <input type="text" id="sTenant" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000">
+
+    <label for="sBook">Workbook URL</label>
+    <input type="text" id="sBook" autocomplete="off" spellcheck="false" placeholder="https://....sharepoint.com/...xlsx">
+
+    <div id="settingsMsg" class="preview" hidden></div>
+    <button id="saveSettings" class="primary" type="button">Save Settings</button>
+    <p class="hint" style="margin-top:10px">Redirect URI to register in Azure: <code id="redirectUri"></code></p>
+  </section>
+
+  <!-- Excel -->
+  <section class="card">
+    <h2>Excel workbook</h2>
+    <p id="excelState" class="hint">Not connected.</p>
+    <div class="btn-row">
+      <button id="signInBtn" class="secondary" type="button">Connect Excel</button>
+      <button id="syncBtn" class="secondary" type="button" hidden>Sync now</button>
+      <a id="openBookBtn" class="secondary btn-link" target="_blank" rel="noopener" hidden>Open workbook</a>
+    </div>
+    <div class="btn-row">
+      <button id="csvBtn" class="ghost" type="button">Download CSV backup</button>
+      <button id="signOutBtn" class="ghost" type="button" hidden>Sign out</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="config.js?v=1"></script>
+<script src="excel.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>

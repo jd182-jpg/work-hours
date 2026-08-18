@@ -1,0 +1,615 @@
+/* ---------------------------------------------------------------------------
+ * app.js — entry logging, pay-period maths, and pushing rows into the workbook.
+ *
+ * Entries live in localStorage first and sync to Excel second, so logging a day
+ * never depends on the network or on being signed in. Anything unsynced is
+ * retried on the next load, on the next save, and whenever "Sync now" is hit.
+ * ------------------------------------------------------------------------- */
+(function () {
+  "use strict";
+
+  var STORE = "ih.entries";
+  var CLOCK = "ih.clock";
+  var DEC = (window.CONFIG && window.CONFIG.decimals) || 2;
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+    "August", "September", "October", "November", "December"];
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* -- dates and hours ---------------------------------------------------- */
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function parseISO(iso) {
+    var p = iso.split("-");
+    return { y: +p[0], m: +p[1], d: +p[2] };
+  }
+
+  // Excel's day zero is 1899-12-30. Built from UTC so a timezone shift can
+  // never slide an entry onto the day before.
+  function dateSerial(iso) {
+    var p = parseISO(iso);
+    return Math.round((Date.UTC(p.y, p.m - 1, p.d) - Date.UTC(1899, 11, 30)) / 86400000);
+  }
+
+  function minutes(hhmm) {
+    var p = hhmm.split(":");
+    return (+p[0]) * 60 + (+p[1]);
+  }
+
+  function timeFraction(hhmm) { return minutes(hhmm) / 1440; }
+
+  function decimalHours(tin, tout) {
+    return round((minutes(tout) - minutes(tin)) / 60);
+  }
+
+  function round(n) {
+    var f = Math.pow(10, DEC);
+    return Math.round(n * f) / f;
+  }
+
+  function fmt(n) { return Number(n).toFixed(DEC); }
+
+  function dayName(iso) {
+    var p = parseISO(iso);
+    return DAYS[new Date(p.y, p.m - 1, p.d).getDay()];
+  }
+
+  function time12(hhmm) {
+    var p = hhmm.split(":"), h = +p[0], suffix = h < 12 ? "AM" : "PM";
+    var hour = h % 12; if (hour === 0) hour = 12;
+    return hour + ":" + p[1] + " " + suffix;
+  }
+
+  function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
+
+  /* -- pay periods: 1st-15th and 16th-end of month ------------------------ */
+
+  function periodOf(iso) {
+    var p = parseISO(iso);
+    return p.d <= 15 ? 1 : 2;
+  }
+
+  function periodLabel(iso) {
+    return periodOf(iso) === 1 ? "1-15" : "16-EOM";
+  }
+
+  function periodBounds(y, m, which) {
+    if (which === 1) {
+      return { start: y + "-" + pad(m) + "-01", end: y + "-" + pad(m) + "-15" };
+    }
+    return { start: y + "-" + pad(m) + "-16",
+             end: y + "-" + pad(m) + "-" + pad(lastDay(y, m)) };
+  }
+
+  function currentPeriod() {
+    var d = new Date();
+    return periodBounds(d.getFullYear(), d.getMonth() + 1,
+      d.getDate() <= 15 ? 1 : 2);
+  }
+
+  function prettyRange(range) {
+    var a = parseISO(range.start), b = parseISO(range.end);
+    return MONTHS[a.m - 1].slice(0, 3) + " " + a.d + " to " +
+      MONTHS[b.m - 1].slice(0, 3) + " " + b.d + ", " + b.y;
+  }
+
+  /* -- store -------------------------------------------------------------- */
+
+  var entries = load();
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE) || "[]"); }
+    catch (e) { return []; }
+  }
+
+  function save() {
+    localStorage.setItem(STORE, JSON.stringify(entries));
+  }
+
+  function sorted() {
+    return entries.slice().sort(function (a, b) {
+      if (a.date === b.date) return a.tin < b.tin ? 1 : -1;
+      return a.date < b.date ? 1 : -1;
+    });
+  }
+
+  function inRange(e, range) {
+    return e.date >= range.start && e.date <= range.end;
+  }
+
+  function sumHours(list) {
+    return round(list.reduce(function (t, e) {
+      return t + decimalHours(e.tin, e.tout);
+    }, 0));
+  }
+
+  function rowValues(e) {
+    return [
+      dateSerial(e.date),
+      dayName(e.date),
+      timeFraction(e.tin),
+      timeFraction(e.tout),
+      decimalHours(e.tin, e.tout),
+      periodLabel(e.date),
+      e.notes || ""
+    ];
+  }
+
+  /* -- rendering ---------------------------------------------------------- */
+
+  function renderPeriod() {
+    var range = currentPeriod();
+    var list = entries.filter(function (e) { return inRange(e, range); });
+    var total = sumHours(list);
+    var days = {};
+    list.forEach(function (e) { days[e.date] = true; });
+    var dayCount = Object.keys(days).length;
+
+    $("periodRange").textContent = prettyRange(range);
+    $("periodHours").textContent = fmt(total);
+    $("periodDays").textContent = dayCount;
+    $("periodAvg").textContent = fmt(dayCount ? total / dayCount : 0);
+  }
+
+  function renderMonth() {
+    var y = +$("mYear").value, m = +$("mMonth").value;
+    var first = periodBounds(y, m, 1), second = periodBounds(y, m, 2);
+    var a = sumHours(entries.filter(function (e) { return inRange(e, first); }));
+    var b = sumHours(entries.filter(function (e) { return inRange(e, second); }));
+
+    $("mFirst").textContent = fmt(a);
+    $("mSecond").textContent = fmt(b);
+    $("mTotal").textContent = fmt(round(a + b));
+    renderEntries(y, m);
+  }
+
+  function renderEntries(y, m) {
+    var prefix = y + "-" + pad(m);
+    var list = sorted().filter(function (e) { return e.date.indexOf(prefix) === 0; });
+    var box = $("entryList");
+
+    $("entryScope").textContent = MONTHS[m - 1] + " " + y;
+
+    if (!list.length) {
+      box.innerHTML = '<p class="hint">No entries this month.</p>';
+      return;
+    }
+
+    box.innerHTML = list.map(function (e) {
+      return '<div class="entry' + (e.synced ? "" : " unsynced") + '">' +
+        '<div class="entry-main">' +
+          '<div class="entry-date">' + dayName(e.date) + " " +
+            e.date.slice(5).replace("-", "/") + '</div>' +
+          '<div class="entry-time">' + time12(e.tin) + " to " + time12(e.tout) +
+            (e.notes ? ' <span class="entry-notes">' + escapeHtml(e.notes) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="entry-hours">' + fmt(decimalHours(e.tin, e.tout)) +
+          (e.synced ? '' : '<span class="dot" title="Not yet in Excel"></span>') +
+        '</div>' +
+        '<button class="del" type="button" data-id="' + e.id + '" aria-label="Delete entry">&times;</button>' +
+      '</div>';
+    }).join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function renderAll() {
+    renderPeriod();
+    renderMonth();
+    renderSyncState();
+  }
+
+  /* -- Excel sync --------------------------------------------------------- */
+
+  var syncing = false;
+
+  function pending() {
+    return entries.filter(function (e) { return !e.synced; });
+  }
+
+  function renderSyncState() {
+    var badge = $("syncBadge");
+    var n = pending().length;
+
+    if (!window.Excel.configured()) {
+      badge.textContent = "Setup";
+      badge.className = "badge warn";
+      return;
+    }
+    if (!window.Excel.isSignedIn()) {
+      badge.textContent = n ? n + " local" : "Not connected";
+      badge.className = "badge";
+      return;
+    }
+    if (syncing) {
+      badge.textContent = "Syncing";
+      badge.className = "badge busy";
+      return;
+    }
+    badge.textContent = n ? n + " pending" : "Synced";
+    badge.className = "badge " + (n ? "busy" : "ok");
+  }
+
+  function setExcelState(msg, kind) {
+    var el = $("excelState");
+    el.textContent = msg;
+    el.className = "hint" + (kind ? " " + kind : "");
+  }
+
+  function syncNow(silent) {
+    if (syncing || !window.Excel.configured() || !window.Excel.isSignedIn()) return Promise.resolve();
+    var queue = pending();
+    if (!queue.length) {
+      if (!silent) setExcelState("Everything is in the workbook.", "ok");
+      return Promise.resolve();
+    }
+
+    syncing = true;
+    renderSyncState();
+    setExcelState("Sending " + queue.length + " entr" + (queue.length === 1 ? "y" : "ies") + "...");
+
+    // Skip anything already sitting in the workbook, which is what makes a
+    // retry after a half-finished sync safe to run.
+    return window.Excel.existingKeys().then(function (keys) {
+      var chain = Promise.resolve();
+      queue.forEach(function (e) {
+        chain = chain.then(function () {
+          var key = String(dateSerial(e.date)) + "|" + String(timeFraction(e.tin));
+          if (keys[key]) { e.synced = true; save(); return; }
+          return window.Excel.appendRow(rowValues(e)).then(function () {
+            e.synced = true;
+            save();
+          });
+        });
+      });
+      return chain;
+    }).then(function () {
+      syncing = false;
+      setExcelState("Workbook is up to date.", "ok");
+      renderAll();
+    }).catch(function (err) {
+      syncing = false;
+      setExcelState("Sync failed: " + err.message, "bad");
+      renderAll();
+    });
+  }
+
+  /* -- clock in / out ----------------------------------------------------- */
+
+  var tick = null;
+
+  function clockState() {
+    try { return JSON.parse(localStorage.getItem(CLOCK) || "null"); }
+    catch (e) { return null; }
+  }
+
+  function nowHHMM() {
+    var d = new Date();
+    return pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function startClock() {
+    localStorage.setItem(CLOCK, JSON.stringify({
+      at: new Date().toISOString(), date: todayISO(), hhmm: nowHHMM()
+    }));
+    renderClock();
+  }
+
+  function stopClock() {
+    var c = clockState();
+    localStorage.removeItem(CLOCK);
+    renderClock();
+    if (!c) return;
+
+    // Drop the stamps into the form rather than saving blind, so a note can be
+    // added and a mis-tap can be corrected before it reaches payroll's copy.
+    $("fDate").value = c.date;
+    $("fIn").value = c.hhmm;
+    $("fOut").value = nowHHMM();
+    previewForm();
+    $("fNotes").focus();
+    $("entryForm").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function renderClock() {
+    var c = clockState();
+    var btn = $("clockBtn"), status = $("clockStatus");
+
+    if (tick) { clearInterval(tick); tick = null; }
+
+    if (!c) {
+      btn.textContent = "Clock In";
+      btn.classList.remove("running");
+      status.hidden = true;
+      return;
+    }
+
+    btn.textContent = "Clock Out";
+    btn.classList.add("running");
+    status.hidden = false;
+    $("clockStart").textContent = time12(c.hhmm);
+
+    var paint = function () {
+      var secs = Math.max(0, Math.floor((Date.now() - new Date(c.at).getTime()) / 1000));
+      $("clockElapsed").textContent =
+        Math.floor(secs / 3600) + ":" + pad(Math.floor(secs / 60) % 60) + ":" + pad(secs % 60);
+    };
+    paint();
+    tick = setInterval(paint, 1000);
+  }
+
+  /* -- form --------------------------------------------------------------- */
+
+  function validate() {
+    var date = $("fDate").value;
+    var tin = $("fIn").value;
+    var tout = $("fOut").value;
+
+    if (!date) return { error: "Pick a date." };
+    if (!tin) return { error: "Enter a time in." };
+    if (!tout) return { error: "Enter a time out." };
+    if (minutes(tout) <= minutes(tin)) {
+      return { error: "Time Out must be after Time In." };
+    }
+    var dup = entries.some(function (e) {
+      return e.date === date && e.tin === tin && e.tout === tout;
+    });
+    if (dup) return { error: "That exact entry is already logged." };
+
+    return { date: date, tin: tin, tout: tout, hours: decimalHours(tin, tout) };
+  }
+
+  // Gives the answer (or the reason there isn't one) before Save is ever tapped.
+  function previewForm() {
+    var el = $("formPreview"), err = $("formError");
+    var tin = $("fIn").value, tout = $("fOut").value;
+    err.hidden = true;
+    el.hidden = true;
+
+    if (!tin || !tout) return;
+
+    if (minutes(tout) === minutes(tin)) {
+      err.textContent = "That is a zero-length shift. Adjust the times before saving.";
+      err.hidden = false;
+      return;
+    }
+    if (minutes(tout) < minutes(tin)) {
+      err.textContent = "Time Out must be after Time In.";
+      err.hidden = false;
+      return;
+    }
+    el.hidden = false;
+    el.textContent = fmt(decimalHours(tin, tout)) + " hours";
+  }
+
+  function submitForm(ev) {
+    ev.preventDefault();
+    var result = validate();
+    var err = $("formError");
+
+    if (result.error) {
+      err.textContent = result.error;
+      err.hidden = false;
+      return;
+    }
+    err.hidden = true;
+
+    entries.push({
+      id: String(Date.now()) + Math.random().toString(36).slice(2, 7),
+      date: result.date,
+      tin: result.tin,
+      tout: result.tout,
+      notes: $("fNotes").value.trim(),
+      synced: false
+    });
+    save();
+
+    $("fIn").value = "";
+    $("fOut").value = "";
+    $("fNotes").value = "";
+    $("formPreview").hidden = true;
+
+    // Show the month the entry landed in, not whatever was being browsed.
+    var p = parseISO(result.date);
+    $("mYear").value = String(p.y);
+    $("mMonth").value = String(p.m);
+
+    renderAll();
+    syncNow(true);
+  }
+
+  function deleteEntry(id) {
+    var idx = -1;
+    for (var i = 0; i < entries.length; i++) if (entries[i].id === id) idx = i;
+    if (idx < 0) return;
+
+    var e = entries[idx];
+    if (!confirm("Delete " + e.date + ", " + time12(e.tin) + " to " + time12(e.tout) + "?")) return;
+
+    entries.splice(idx, 1);
+    save();
+    renderAll();
+
+    if (e.synced && window.Excel.isSignedIn()) {
+      setExcelState("Removing the row from the workbook...");
+      window.Excel.deleteRow(dateSerial(e.date), timeFraction(e.tin))
+        .then(function () { setExcelState("Workbook is up to date.", "ok"); })
+        .catch(function (err) {
+          setExcelState("Deleted here, but the workbook row remains: " + err.message, "bad");
+        });
+    }
+  }
+
+  /* -- CSV backup --------------------------------------------------------- */
+
+  function downloadCsv() {
+    var rows = [["Date", "Day", "Time In", "Time Out", "Hours", "Period", "Notes"]];
+    sorted().slice().reverse().forEach(function (e) {
+      rows.push([e.date, dayName(e.date), time12(e.tin), time12(e.tout),
+        fmt(decimalHours(e.tin, e.tout)), periodLabel(e.date), e.notes || ""]);
+    });
+
+    var csv = rows.map(function (r) {
+      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",");
+    }).join("\n");
+
+    var url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "internship-hours-" + todayISO() + ".csv";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+
+  /* -- settings ----------------------------------------------------------- */
+
+  function loadSettingsForm() {
+    var c = window.Excel.getSettings();
+    $("sClient").value = c.clientId || "";
+    $("sTenant").value = c.tenantId || "";
+    $("sBook").value = c.workbookUrl || "";
+    $("redirectUri").textContent = window.Excel.redirectUri();
+  }
+
+  function saveSettingsForm() {
+    window.Excel.saveSettings({
+      clientId: $("sClient").value,
+      tenantId: $("sTenant").value,
+      workbookUrl: $("sBook").value
+    });
+    var msg = $("settingsMsg");
+    msg.hidden = false;
+    msg.textContent = window.Excel.configured()
+      ? "Saved. Now tap Connect Excel."
+      : "Saved, but one of the three is still blank.";
+    refreshExcelUi();
+  }
+
+  /* -- wiring ------------------------------------------------------------- */
+
+  function buildPickers() {
+    var now = new Date();
+    var mSel = $("mMonth"), ySel = $("mYear");
+
+    MONTHS.forEach(function (name, i) {
+      var o = document.createElement("option");
+      o.value = String(i + 1); o.textContent = name;
+      mSel.appendChild(o);
+    });
+    for (var y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+      var o = document.createElement("option");
+      o.value = String(y); o.textContent = String(y);
+      ySel.appendChild(o);
+    }
+    mSel.value = String(now.getMonth() + 1);
+    ySel.value = String(now.getFullYear());
+  }
+
+  function refreshExcelUi() {
+    var configured = window.Excel.configured();
+    var signedIn = window.Excel.isSignedIn();
+    var book = window.Excel.bookInfo();
+
+    $("setupCard").hidden = configured;
+    if (!configured) {
+      $("setupMsg").textContent =
+        "The Excel connection is not configured yet, so entries are saving to this " +
+        "device only. Fill in Settings below and they will upload, nothing is lost.";
+    }
+
+    $("signInBtn").hidden = !configured || signedIn;
+    $("syncBtn").hidden = !signedIn;
+    $("signOutBtn").hidden = !signedIn;
+
+    var open = $("openBookBtn");
+    if (book && book.webUrl) {
+      open.hidden = false;
+      open.href = book.webUrl;
+      open.textContent = "Open workbook";
+    } else {
+      open.hidden = true;
+    }
+
+    if (configured && signedIn) {
+      var n = pending().length;
+      setExcelState(n ? n + " entr" + (n === 1 ? "y" : "ies") + " waiting to upload."
+                      : "Connected. Workbook is up to date.", n ? "" : "ok");
+    } else if (configured) {
+      setExcelState("Connect your Microsoft account to write into the workbook.");
+    }
+    renderSyncState();
+  }
+
+  function init() {
+    buildPickers();
+    $("fDate").value = todayISO();
+
+    $("entryForm").addEventListener("submit", submitForm);
+    $("fIn").addEventListener("change", previewForm);
+    $("fOut").addEventListener("change", previewForm);
+    $("mMonth").addEventListener("change", renderMonth);
+    $("mYear").addEventListener("change", renderMonth);
+
+    $("clockBtn").addEventListener("click", function () {
+      if (clockState()) stopClock(); else startClock();
+    });
+    $("clockCancel").addEventListener("click", function () {
+      localStorage.removeItem(CLOCK);
+      renderClock();
+    });
+
+    $("entryList").addEventListener("click", function (ev) {
+      var btn = ev.target.closest(".del");
+      if (btn) deleteEntry(btn.getAttribute("data-id"));
+    });
+
+    $("signInBtn").addEventListener("click", function () { window.Excel.signIn(); });
+    $("signOutBtn").addEventListener("click", function () {
+      window.Excel.signOut();
+      refreshExcelUi();
+    });
+    $("syncBtn").addEventListener("click", function () { syncNow(false); });
+    $("syncBadge").addEventListener("click", function () { syncNow(false); });
+    $("csvBtn").addEventListener("click", downloadCsv);
+    $("saveSettings").addEventListener("click", saveSettingsForm);
+    loadSettingsForm();
+
+    window.Excel.onChange(refreshExcelUi);
+
+    renderClock();
+    renderAll();
+
+    window.Excel.handleRedirect().then(function (signedIn) {
+      refreshExcelUi();
+      if (window.Excel.isSignedIn()) {
+        window.Excel.resolveBook()
+          .then(function () { refreshExcelUi(); return syncNow(true); })
+          .catch(function (err) {
+            setExcelState("Cannot open the workbook: " + err.message, "bad");
+          });
+      }
+    }).catch(function (err) {
+      setExcelState("Sign-in failed: " + err.message, "bad");
+      refreshExcelUi();
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
