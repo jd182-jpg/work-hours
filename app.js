@@ -486,6 +486,24 @@
   }
 
 
+
+  // Entries carry a single synced flag, which is only meaningful relative to
+  // one workbook. Repointing the app at a different file (switching tenants,
+  // say) has to re-open the whole backlog, or the new workbook stays empty
+  // while every entry still claims to be uploaded. Re-sending is safe: the
+  // sync pass skips rows already present in the target.
+  function reconcileWorkbookTarget() {
+    var url = window.Excel.getSettings().workbookUrl;
+    if (!url) return;
+
+    var last = localStorage.getItem("wh.lastBook");
+    if (last && last !== url) {
+      entries.forEach(function (e) { e.synced = false; });
+      save();
+    }
+    localStorage.setItem("wh.lastBook", url);
+  }
+
   /* -- settings ----------------------------------------------------------- */
 
   function loadSettingsForm() {
@@ -502,6 +520,7 @@
       tenantId: $("sTenant").value,
       workbookUrl: $("sBook").value
     });
+    reconcileWorkbookTarget();
     var msg = $("settingsMsg");
     msg.hidden = false;
     msg.textContent = window.Excel.configured()
@@ -512,6 +531,7 @@
 
 
   function applyImported() {
+    reconcileWorkbookTarget();
     loadSettingsForm();
     refreshExcelUi();
     var m = $("settingsMsg");
@@ -625,6 +645,7 @@
 
     window.Excel.onChange(refreshExcelUi);
 
+    reconcileWorkbookTarget();
     renderClock();
     renderAll();
 
