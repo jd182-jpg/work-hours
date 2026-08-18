@@ -1,7 +1,7 @@
 {
-  "name": "Internship Hours",
+  "name": "Work Hours",
   "short_name": "Hours",
-  "description": "Log internship hours and push them into the shared Excel workbook.",
+  "description": "Log work hours and push them into the shared Excel workbook.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

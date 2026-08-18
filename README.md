@@ -1,6 +1,6 @@
-# Internship Hours
+# Work Hours
 
-A phone-first web app for logging internship hours that writes each day
+A phone-first web app for logging work hours that writes each day
 straight into a real Excel workbook in OneDrive, so John and Ashley always see
 current numbers without you sending anything.
 
@@ -16,7 +16,7 @@ Already created here:
 
 ```
 LV Intern Work - Documents / 2026 / For Ashley /
-Jackson Darr - Internship Hours 2026.xlsx
+Jackson Darr - Work Hours 2026.xlsx
 ```
 
 That library is already shared with the team, so John and Ashley can open it
@@ -46,11 +46,11 @@ minutes and only has to be done once.
 
 1. Go to <https://entra.microsoft.com> and sign in with your Bakers Creek account
 2. **Applications** > **App registrations** > **New registration**
-3. Name it `Internship Hours`
+3. Name it `Work Hours`
 4. Supported account types: **Accounts in this organizational directory only**
 5. Under **Redirect URI**, change the dropdown to **Single-page application (SPA)**
    and enter the URL where the app will live:
-   `https://jd182-jpg.github.io/internship-hours/`
+   `https://jd182-jpg.github.io/work-hours/`
 6. Click **Register**
 7. On the Overview page, copy the **Application (client) ID** and the
    **Directory (tenant) ID**. You need both in step 3.
@@ -76,18 +76,18 @@ GitHub Pages is free, gives you HTTPS, and works from anywhere including
 cellular. From this folder:
 
 ```bash
-cd ~/Documents/Projects/internship-hours && git add -A && git commit -m "Internship hours tracker"
+cd ~/Documents/Projects/work-hours && git add -A && git commit -m "Work hours tracker"
 ```
 
 ```bash
-gh repo create internship-hours --public --source=. --push
+gh repo create work-hours --public --source=. --push
 ```
 
 ```bash
-gh api -X POST repos/jd182-jpg/internship-hours/pages -f "source[branch]=main" -f "source[path]=/"
+gh api -X POST repos/jd182-jpg/work-hours/pages -f "source[branch]=main" -f "source[path]=/"
 ```
 
-Give it a minute, then open <https://jd182-jpg.github.io/internship-hours/>.
+Give it a minute, then open <https://jd182-jpg.github.io/work-hours/>.
 
 Nothing about your tenant or your workbook is in this code, which is why the
 repo can be public. Those three values live only in your browser's storage on
@@ -96,7 +96,7 @@ each device you set up.
 To push later changes:
 
 ```bash
-cd ~/Documents/Projects/internship-hours && git add -A && git commit -m "Update" && git push
+cd ~/Documents/Projects/work-hours && git add -A && git commit -m "Update" && git push
 ```
 
 ### 3. Enter your settings on the phone
@@ -128,7 +128,7 @@ full screen like an app.
 You do not need this for normal use, but it is handy for trying changes:
 
 ```bash
-cd ~/Documents/Projects/internship-hours && python3 -m http.server 8000
+cd ~/Documents/Projects/work-hours && python3 -m http.server 8000
 ```
 
 Then open <http://localhost:8000>. Sign-in works here too, as long as you also
@@ -174,7 +174,7 @@ right to force a sync and watch the message under Excel workbook.
 If the file is ever lost, regenerate an empty one:
 
 ```bash
-python3 ~/Documents/Projects/internship-hours/tools/make_workbook.py --year 2026 --out "Jackson Darr - Internship Hours 2026.xlsx"
+python3 ~/Documents/Projects/work-hours/tools/make_workbook.py --year 2026 --out "Jackson Darr - Work Hours 2026.xlsx"
 ```
 
 Use **Download CSV backup** in the app first if you need to re-import past

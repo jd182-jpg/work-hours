@@ -8,14 +8,26 @@
 (function () {
   "use strict";
 
-  var STORE = "ih.entries";
-  var CLOCK = "ih.clock";
+  var STORE = "wh.entries";
+  var CLOCK = "wh.clock";
   var DEC = (window.CONFIG && window.CONFIG.decimals) || 2;
   var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
     "August", "September", "October", "November", "December"];
 
   var $ = function (id) { return document.getElementById(id); };
+
+  // Carry over anything saved while the app was still called "internship hours".
+  // Runs once and is a no-op on a fresh device.
+  (function migrate() {
+    ["entries", "clock", "settings", "token", "book"].forEach(function (k) {
+      var from = "ih." + k, to = "wh." + k;
+      if (localStorage.getItem(from) !== null && localStorage.getItem(to) === null) {
+        localStorage.setItem(to, localStorage.getItem(from));
+      }
+      localStorage.removeItem(from);
+    });
+  })();
 
   /* -- dates and hours ---------------------------------------------------- */
 
@@ -468,7 +480,7 @@
     var url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     var a = document.createElement("a");
     a.href = url;
-    a.download = "internship-hours-" + todayISO() + ".csv";
+    a.download = "work-hours-" + todayISO() + ".csv";
     a.click();
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
   }

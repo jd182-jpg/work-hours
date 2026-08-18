@@ -14,12 +14,12 @@
 
   var GRAPH = "https://graph.microsoft.com/v1.0";
   var SCOPES = "openid profile offline_access Files.ReadWrite.All";
-  var TOKEN_KEY = "ih.token";
-  var BOOK_KEY = "ih.book";
-  var VERIFIER_KEY = "ih.pkce";
-  var STATE_KEY = "ih.state";
+  var TOKEN_KEY = "wh.token";
+  var BOOK_KEY = "wh.book";
+  var VERIFIER_KEY = "wh.pkce";
+  var STATE_KEY = "wh.state";
 
-  var SETTINGS_KEY = "ih.settings";
+  var SETTINGS_KEY = "wh.settings";
   var listeners = [];
 
   // config.js supplies defaults; anything saved on this device wins. Keeping the

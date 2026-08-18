@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build the live internship-hours workbook.
+Build the live work-hours workbook.
 
 Creates a .xlsx with two sheets:
 
@@ -14,7 +14,7 @@ Creates a .xlsx with two sheets:
              The web app appends rows here through the Microsoft Graph API.
 
 Usage:
-    python3 make_workbook.py --year 2026 --out "Internship Hours.xlsx"
+    python3 make_workbook.py --year 2026 --out "Work Hours.xlsx"
 """
 
 import argparse
@@ -54,7 +54,7 @@ def build_summary(ws, year):
         ws.column_dimensions[col].width = 16
     ws.column_dimensions["E"].width = 3
 
-    ws["A1"] = "Internship Hours"
+    ws["A1"] = "Work Hours"
     ws["A1"].font = Font(bold=True, size=18, color=NAVY)
     ws["A2"] = "Logged from the phone app. Totals below are live formulas."
     ws["A2"].font = Font(size=10, color=GREY, italic=True)
@@ -166,7 +166,7 @@ def build_log(ws):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--year", type=int, default=2026)
-    ap.add_argument("--out", default="Internship Hours.xlsx")
+    ap.add_argument("--out", default="Work Hours.xlsx")
     args = ap.parse_args()
 
     wb = Workbook()
