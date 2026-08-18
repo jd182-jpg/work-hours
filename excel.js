@@ -43,6 +43,35 @@
     };
   }
 
+
+  // Accepts settings handed over in the URL fragment, e.g.
+  //   .../work-hours/#setup=<base64url JSON>
+  // A fragment is never transmitted to any server, so this moves ids onto a new
+  // device without typing them and without committing them to a public repo.
+  // The fragment is stripped immediately so it does not linger in the address bar.
+  function importFromHash() {
+    var h = location.hash || "";
+    if (h.indexOf("#setup=") !== 0) return false;
+
+    var raw = h.slice(7);
+    history.replaceState({}, "", redirectUri());
+
+    try {
+      var pad = raw.replace(/-/g, "+").replace(/_/g, "/");
+      while (pad.length % 4) pad += "=";
+      var incoming = JSON.parse(decodeURIComponent(escape(atob(pad))));
+      var cur = S();
+      saveSettings({
+        clientId: incoming.clientId || cur.clientId,
+        tenantId: incoming.tenantId || cur.tenantId,
+        workbookUrl: incoming.workbookUrl || cur.workbookUrl
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function getSettings() { return S(); }
 
   function saveSettings(next) {
@@ -347,6 +376,7 @@
   window.Excel = {
     configured: configured,
     getSettings: getSettings,
+    importFromHash: importFromHash,
     saveSettings: saveSettings,
     redirectUri: redirectUri,
     isSignedIn: isSignedIn,

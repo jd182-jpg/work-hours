@@ -566,6 +566,10 @@
   }
 
   function init() {
+    // Runs before anything reads settings, so a setup link is already applied
+    // by the time sign-in or a redirect callback needs the client id.
+    var imported = window.Excel.importFromHash();
+
     buildPickers();
     $("fDate").value = todayISO();
 
@@ -598,6 +602,14 @@
     $("csvBtn").addEventListener("click", downloadCsv);
     $("saveSettings").addEventListener("click", saveSettingsForm);
     loadSettingsForm();
+
+    if (imported) {
+      var m = $("settingsMsg");
+      m.hidden = false;
+      m.textContent = window.Excel.configured()
+        ? "Settings loaded from the setup link."
+        : "Setup link loaded. Add the workbook URL to finish.";
+    }
 
     window.Excel.onChange(refreshExcelUi);
 
