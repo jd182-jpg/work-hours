@@ -46,7 +46,7 @@ minutes and only has to be done once.
 
 1. Go to <https://entra.microsoft.com> and sign in with your Bakers Creek account
 2. **Applications** > **App registrations** > **New registration**
-3. Name it `Work Hours`
+3. Name it `Jackson-Hours` (the existing registration uses this name)
 4. Supported account types: **Accounts in this organizational directory only**
 5. Under **Redirect URI**, change the dropdown to **Single-page application (SPA)**
    and enter the URL where the app will live:
@@ -162,10 +162,26 @@ Deleting an entry in the app also removes that row from the workbook.
 not match. Compare it to the one printed in the app's Settings card. Also confirm
 the platform is Single-page application, not Web.
 
-**"Need admin approval" on the permission prompt.** Bakers Creek has turned off
-user consent for app permissions. Someone with admin rights needs to open the app
-registration, go to API permissions, and click **Grant admin consent**. Until
-then the app still logs hours locally and will upload everything once approved.
+**"Need admin approval" on the permission prompt.** This is what happened on the
+first attempt. The leggettventures.com tenant has user consent for apps switched
+off, so no amount of fiddling with the registration will fix it from your side.
+An admin has to approve the app once, either by opening
+
+```
+https://login.microsoftonline.com/ebfd2362-5605-4f59-b603-aa68d309e7d1/adminconsent?client_id=7401adb8-8ee7-4b4f-bac6-5b49c145742a
+```
+
+and signing in with an admin account, or in the Entra admin center under
+**App registrations > Jackson-Hours > API permissions > Grant admin consent**.
+
+It is a one-time action for the whole tenant. Until it happens the app still logs
+hours locally and uploads the backlog the first time you connect, so keep using
+it and nothing is lost.
+
+The permission is **delegated**, not application. That means the app acts as you
+and can never touch a file you could not already open yourself, and it has no
+background or app-only access. Worth saying explicitly if IT asks, because
+"Files.ReadWrite.All" reads broader than it behaves.
 
 **"Cannot open the workbook".** The Workbook URL in Settings is wrong, or the
 file was moved or renamed. Paste the current URL and save again.
