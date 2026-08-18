@@ -510,6 +510,17 @@
     refreshExcelUi();
   }
 
+
+  function applyImported() {
+    loadSettingsForm();
+    refreshExcelUi();
+    var m = $("settingsMsg");
+    m.hidden = false;
+    m.textContent = window.Excel.configured()
+      ? "Settings loaded from the setup link. Tap Connect Excel."
+      : "Setup link loaded. Add the workbook URL to finish.";
+  }
+
   /* -- wiring ------------------------------------------------------------- */
 
   function buildPickers() {
@@ -603,13 +614,14 @@
     $("saveSettings").addEventListener("click", saveSettingsForm);
     loadSettingsForm();
 
-    if (imported) {
-      var m = $("settingsMsg");
-      m.hidden = false;
-      m.textContent = window.Excel.configured()
-        ? "Settings loaded from the setup link."
-        : "Setup link loaded. Add the workbook URL to finish.";
-    }
+    if (imported) applyImported();
+
+    // Tapping the setup link while the app is already open changes only the
+    // fragment, which does not reload the page. Without this the link would
+    // appear to do nothing.
+    window.addEventListener("hashchange", function () {
+      if (window.Excel.importFromHash()) applyImported();
+    });
 
     window.Excel.onChange(refreshExcelUi);
 

@@ -101,12 +101,19 @@ cd ~/Documents/Projects/work-hours && git add -A && git commit -m "Update" && gi
 
 ### 3. Enter your settings on the phone
 
-Open the site on your phone, scroll to **Settings**, and paste in:
+Fastest way: open the one-time setup link. It carries the three values in the
+URL fragment, which browsers never send to a server, so nothing about the tenant
+is published anywhere. The app reads it, saves it, and strips it from the address
+bar. Do that on each device you want to log from.
+
+Otherwise, open the site, scroll to **Settings**, and paste in:
 
 - **Application (client) ID** from step 1
 - **Directory (tenant) ID** from step 1
-- **Workbook URL**: open the workbook in OneDrive or SharePoint in a browser and
-  copy the address bar, or use Share > Copy link. Either form works.
+- **Workbook URL**: currently
+  `https://onpointcustomhomes.sharepoint.com/sites/LVInternWork/Shared%20Documents/2026/For%20Ashley/Jackson%20Darr%20-%20Work%20Hours%202026.xlsx`
+  If that ever stops resolving, open the workbook in a browser and copy the
+  address bar instead, or use Share > Copy link. Either form works.
 
 Tap **Save Settings**, then **Connect Excel** and sign in with your Bakers Creek
 account. Approve the permission prompt once.
