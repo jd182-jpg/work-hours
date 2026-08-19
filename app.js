@@ -504,6 +504,75 @@
     localStorage.setItem("wh.lastBook", url);
   }
 
+
+  /* -- bulk import via #import= link --------------------------------------- */
+
+  // Accepts a batch of entries handed over in the URL fragment, for backfilling
+  // days that were tracked somewhere else. Same transport as the setup link, so
+  // nothing is sent to a server. Imported rows arrive unsynced and then travel
+  // the ordinary sync path, which means the workbook stays a product of the app
+  // rather than something edited behind its back.
+  function importEntriesFromHash() {
+    var h = location.hash || "";
+    if (h.indexOf("#import=") !== 0) return null;
+
+    var raw = h.slice(8);
+    history.replaceState({}, "", location.origin +
+      location.pathname.replace(/index\.html$/, ""));
+
+    var incoming;
+    try {
+      var pad = raw.replace(/-/g, "+").replace(/_/g, "/");
+      while (pad.length % 4) pad += "=";
+      incoming = JSON.parse(decodeURIComponent(escape(atob(pad))));
+    } catch (e) {
+      return { added: 0, skipped: 0, bad: true };
+    }
+    if (!incoming || !incoming.length) return null;
+
+    var added = 0, skipped = 0;
+    incoming.forEach(function (r) {
+      if (!r || !r.date || !r.tin || !r.tout) { skipped++; return; }
+      if (minutes(r.tout) <= minutes(r.tin)) { skipped++; return; }
+
+      var dup = entries.some(function (e) {
+        return e.date === r.date && e.tin === r.tin && e.tout === r.tout;
+      });
+      if (dup) { skipped++; return; }
+
+      entries.push({
+        id: String(Date.now()) + Math.random().toString(36).slice(2, 7),
+        date: r.date,
+        tin: r.tin,
+        tout: r.tout,
+        notes: r.notes || "",
+        synced: false
+      });
+      added++;
+    });
+
+    if (added) save();
+    return { added: added, skipped: skipped };
+  }
+
+  function showImportResult(res) {
+    if (!res) return;
+    var card = $("importCard"), msg = $("importMsg");
+    card.hidden = false;
+
+    if (res.bad) {
+      msg.textContent = "That import link could not be read. Nothing was changed.";
+      return;
+    }
+
+    var total = round(entries.filter(function (e) { return !e.synced; })
+      .reduce(function (t, e) { return t + decimalHours(e.tin, e.tout); }, 0));
+
+    msg.textContent = res.added + " entr" + (res.added === 1 ? "y" : "ies") + " added" +
+      (res.skipped ? ", " + res.skipped + " skipped as duplicates or invalid" : "") +
+      ". " + fmt(total) + " hours are queued for the workbook.";
+  }
+
   /* -- settings ----------------------------------------------------------- */
 
   function loadSettingsForm() {
@@ -600,6 +669,7 @@
     // Runs before anything reads settings, so a setup link is already applied
     // by the time sign-in or a redirect callback needs the client id.
     var imported = window.Excel.importFromHash();
+    var importedEntries = importEntriesFromHash();
 
     buildPickers();
     $("fDate").value = todayISO();
@@ -635,12 +705,19 @@
     loadSettingsForm();
 
     if (imported) applyImported();
+    if (importedEntries) showImportResult(importedEntries);
 
     // Tapping the setup link while the app is already open changes only the
     // fragment, which does not reload the page. Without this the link would
     // appear to do nothing.
     window.addEventListener("hashchange", function () {
       if (window.Excel.importFromHash()) applyImported();
+      var batch = importEntriesFromHash();
+      if (batch) {
+        showImportResult(batch);
+        renderAll();
+        syncNow(true);
+      }
     });
 
     window.Excel.onChange(refreshExcelUi);

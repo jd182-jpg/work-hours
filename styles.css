@@ -407,3 +407,8 @@ code {
 @media (min-width: 560px) {
   .period-total { font-size: 62px; }
 }
+
+.card.ok-card {
+  border-color: #bfe0cd;
+  background: #f1faf5;
+}
