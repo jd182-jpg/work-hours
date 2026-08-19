@@ -330,20 +330,28 @@
     });
   }
 
-  // Pull every Date cell already in the workbook, so a re-sync can skip rows
-  // that are present and avoid double-counting a day.
-  function existingKeys() {
+  // Every row currently in the table, for two-way sync. Follows @odata.nextLink
+  // rather than trusting a single page: a table that ever grows past Graph's
+  // page size would otherwise look, to the caller, like its later rows had
+  // been deleted, and this result is used to decide what to prune locally.
+  function fetchAllRows() {
     return resolveBook().then(function (book) {
-      return graph(tablePath(book) + "/rows?$select=values");
-    }).then(function (res) {
-      var keys = {};
-      ((res && res.value) || []).forEach(function (row) {
-        var v = row.values[0];
-        if (v && v[0] !== "" && v[0] !== null) {
-          keys[String(v[0]) + "|" + String(v[2])] = true;
-        }
-      });
-      return keys;
+      var start = tablePath(book) + "/rows?$select=values";
+      var all = [];
+
+      function page(path) {
+        return graph(path).then(function (res) {
+          ((res && res.value) || []).forEach(function (row) {
+            var v = row.values[0];
+            if (v && v[0] !== "" && v[0] !== null) all.push(v);
+          });
+          var next = res && res["@odata.nextLink"];
+          if (next) return page(next.indexOf(GRAPH) === 0 ? next.slice(GRAPH.length) : next);
+          return all;
+        });
+      }
+
+      return page(start);
     });
   }
 
@@ -384,7 +392,7 @@
     signOut: signOut,
     handleRedirect: handleRedirect,
     appendRow: appendRow,
-    existingKeys: existingKeys,
+    fetchAllRows: fetchAllRows,
     deleteRow: deleteRow,
     resolveBook: resolveBook,
     bookInfo: bookInfo,

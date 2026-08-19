@@ -57,6 +57,31 @@
 
   function timeFraction(hhmm) { return minutes(hhmm) / 1440; }
 
+  // Inverse of dateSerial/timeFraction, for reading rows back out of the
+  // workbook. Rounded rather than trusted exactly, because Excel round-trips
+  // these as floats and can hand back e.g. 46252.0000000002.
+  function serialToISO(serial) {
+    var ms = Math.round(serial) * 86400000 + Date.UTC(1899, 11, 30);
+    var d = new Date(ms);
+    return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate());
+  }
+
+  function fracToHHMM(frac) {
+    var total = ((Math.round(frac * 1440) % 1440) + 1440) % 1440;
+    return pad(Math.floor(total / 60)) + ":" + pad(total % 60);
+  }
+
+  // Loose equality for comparing a local entry's serial/fraction against a
+  // value that has round-tripped through Excel, which can drift in the last
+  // float bit even for the same nominal time.
+  function nearlyEqual(a, b) { return Math.abs(Number(a) - Number(b)) < 1e-6; }
+
+  function matchesRow(e, row) {
+    return nearlyEqual(dateSerial(e.date), row[0]) &&
+      nearlyEqual(timeFraction(e.tin), row[2]) &&
+      nearlyEqual(timeFraction(e.tout), row[3]);
+  }
+
   function decimalHours(tin, tout) {
     return round((minutes(tout) - minutes(tin)) / 60);
   }
@@ -231,6 +256,45 @@
     return entries.filter(function (e) { return !e.synced; });
   }
 
+  // Reconciles local storage against a full read of the workbook, so logging
+  // from more than one device converges instead of each device only ever
+  // showing what it personally typed in.
+  //
+  // A row present remotely but not locally was added elsewhere and is pulled
+  // in as already synced. A LOCAL entry marked synced but absent from the
+  // fetch was deleted elsewhere and is removed here too. Never touches an
+  // unsynced entry: that is work this device hasn't pushed yet, and a row
+  // missing from the workbook because it hasn't been sent yet is not the same
+  // thing as a row that was deleted after being sent.
+  function mergeFromWorkbook(rows) {
+    var added = 0, removed = 0;
+
+    rows.forEach(function (row) {
+      var exists = entries.some(function (e) { return matchesRow(e, row); });
+      if (exists) return;
+      entries.push({
+        id: String(Date.now()) + Math.random().toString(36).slice(2, 7),
+        date: serialToISO(row[0]),
+        tin: fracToHHMM(row[2]),
+        tout: fracToHHMM(row[3]),
+        notes: row[6] || "",
+        synced: true
+      });
+      added++;
+    });
+
+    entries = entries.filter(function (e) {
+      if (!e.synced) return true;
+      var stillThere = rows.some(function (row) { return matchesRow(e, row); });
+      if (stillThere) return true;
+      removed++;
+      return false;
+    });
+
+    if (added || removed) save();
+    return { added: added, removed: removed };
+  }
+
   function renderSyncState() {
     var badge = $("syncBadge");
     var n = pending().length;
@@ -260,37 +324,51 @@
     el.className = "hint" + (kind ? " " + kind : "");
   }
 
+  // Pulls the full workbook first so another device's additions and deletions
+  // are reflected here, then pushes whatever is still pending. The push step
+  // reuses that same fetch to check for duplicates, so a retry after a
+  // half-finished sync cannot double-post, and a second Graph read isn't
+  // needed just to do it.
   function syncNow(silent) {
     if (syncing || !window.Excel.configured() || !window.Excel.isSignedIn()) return Promise.resolve();
-    var queue = pending();
-    if (!queue.length) {
-      if (!silent) setExcelState("Everything is in the workbook.", "ok");
-      return Promise.resolve();
-    }
 
     syncing = true;
     renderSyncState();
-    setExcelState("Sending " + queue.length + " entr" + (queue.length === 1 ? "y" : "ies") + "...");
+    if (!silent) setExcelState("Checking the workbook...");
 
-    // Skip anything already sitting in the workbook, which is what makes a
-    // retry after a half-finished sync safe to run.
-    return window.Excel.existingKeys().then(function (keys) {
+    return window.Excel.fetchAllRows().then(function (rows) {
+      var merge = mergeFromWorkbook(rows);
+      if (merge.added || merge.removed) renderAll();
+
+      var queue = pending();
+      if (!queue.length) {
+        syncing = false;
+        setExcelState(merge.added
+          ? ("Pulled " + merge.added + " entr" + (merge.added === 1 ? "y" : "ies") + " logged on another device.")
+          : "Everything is in the workbook.", "ok");
+        renderSyncState();
+        return;
+      }
+
+      setExcelState("Sending " + queue.length + " entr" + (queue.length === 1 ? "y" : "ies") + "...");
+
       var chain = Promise.resolve();
       queue.forEach(function (e) {
         chain = chain.then(function () {
-          var key = String(dateSerial(e.date)) + "|" + String(timeFraction(e.tin));
-          if (keys[key]) { e.synced = true; save(); return; }
+          var already = rows.some(function (row) { return matchesRow(e, row); });
+          if (already) { e.synced = true; save(); return; }
           return window.Excel.appendRow(rowValues(e)).then(function () {
             e.synced = true;
             save();
           });
         });
       });
-      return chain;
-    }).then(function () {
-      syncing = false;
-      setExcelState("Workbook is up to date.", "ok");
-      renderAll();
+
+      return chain.then(function () {
+        syncing = false;
+        setExcelState("Workbook is up to date.", "ok");
+        renderAll();
+      });
     }).catch(function (err) {
       syncing = false;
       setExcelState("Sync failed: " + err.message, "bad");

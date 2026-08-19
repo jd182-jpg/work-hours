@@ -9,6 +9,8 @@ current numbers without you sending anything.
 - Running total for the current pay period, plus any month you pick
 - Pay periods are the 1st through the 15th and the 16th through end of month
 - Entries save on the device first, then upload, so a dead signal never loses a day
+- Logging from more than one device works: every sync pulls the workbook down
+  too, so a phone and a laptop both stay caught up with what the other logged
 
 ## The workbook
 
@@ -123,7 +125,10 @@ to match what you registered in Azure character for character. If sign-in fails,
 compare those two first.
 
 Repeat this step on your laptop if you want to log there too. Settings are per
-device; the hours themselves live in the workbook.
+device, but every sync also pulls the workbook down and reconciles it against
+what's on the device, so logging on your phone one day and your laptop the
+next keeps both showing the same complete picture rather than each only
+knowing about what it personally typed in.
 
 ### 4. Add it to your home screen
 
