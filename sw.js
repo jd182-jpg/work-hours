@@ -4,14 +4,14 @@
  *
  * Bump CACHE and the ?v= query strings in index.html together on any shell change.
  */
-var CACHE = "wh-v6";
+var CACHE = "wh-v7";
 var SHELL = [
   "./index.html",
-  "./styles.css?v=7",
-  "./config.js?v=7",
-  "./excel.js?v=7",
-  "./app.js?v=7",
-  "./manifest.json?v=7"
+  "./styles.css?v=8",
+  "./config.js?v=8",
+  "./excel.js?v=8",
+  "./app.js?v=8",
+  "./manifest.json?v=8"
 ];
 
 self.addEventListener("install", function (e) {

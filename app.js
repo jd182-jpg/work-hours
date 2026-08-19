@@ -113,8 +113,13 @@
     return p.d <= 15 ? 1 : 2;
   }
 
+  // Excel auto-detects a cell value that looks like a date the same way it
+  // would if typed by hand, regardless of how it arrives through the Graph
+  // API. "1-15" was silently read as January 15 and stored as a real date,
+  // which then set a date display format on the whole column. Letters in the
+  // label make that misread impossible.
   function periodLabel(iso) {
-    return periodOf(iso) === 1 ? "1-15" : "16-EOM";
+    return periodOf(iso) === 1 ? "1st - 15th" : "16th - End";
   }
 
   function periodBounds(y, m, which) {

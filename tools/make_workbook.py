@@ -160,6 +160,13 @@ def build_log(ws):
     ws.cell(row=2, column=3).number_format = "h:mm AM/PM"
     ws.cell(row=2, column=4).number_format = "h:mm AM/PM"
     ws.cell(row=2, column=5).number_format = "0.00"
+
+    # Force the Period column to Text. The app already avoids sending a value
+    # Excel could mistake for a date, but a cell left on General format applies
+    # that guesswork to anything landing in it later, by hand or otherwise.
+    ws.cell(row=2, column=6).number_format = "@"
+    ws.column_dimensions["F"].number_format = "@"
+
     ws.freeze_panes = "A2"
 
 
