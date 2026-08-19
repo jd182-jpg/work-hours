@@ -10,6 +10,7 @@
 
   var STORE = "wh.entries";
   var CLOCK = "wh.clock";
+  var RATE_KEY = "wh.payRate";
   var DEC = (window.CONFIG && window.CONFIG.decimals) || 2;
   var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -92,6 +93,24 @@
   }
 
   function fmt(n) { return Number(n).toFixed(DEC); }
+
+  // Kept separate from DEC/fmt on purpose: hours-decimal precision is a
+  // config knob, but a dollar figure is always two decimals regardless.
+  function fmtMoney(n) { return Number(n).toFixed(2); }
+
+  // Local-only estimate of what an hour is worth, never part of any entry,
+  // never sent to Excel or the CSV backup. Defaults to $40 the first time the
+  // app runs; after that, whatever the Pay rate field was last set to.
+  function getPayRate() {
+    var v = parseFloat(localStorage.getItem(RATE_KEY));
+    return isFinite(v) && v >= 0 ? v : 40;
+  }
+
+  function setPayRate(v) {
+    var n = parseFloat(v);
+    if (!isFinite(n) || n < 0) return;
+    localStorage.setItem(RATE_KEY, String(n));
+  }
 
   function dayName(iso) {
     var p = parseISO(iso);
@@ -196,6 +215,7 @@
 
     $("periodRange").textContent = prettyRange(range);
     $("periodHours").textContent = fmt(total);
+    $("periodPay").textContent = fmtMoney(total * getPayRate());
     $("periodDays").textContent = dayCount;
     $("periodAvg").textContent = fmt(dayCount ? total / dayCount : 0);
   }
@@ -209,6 +229,7 @@
     $("mFirst").textContent = fmt(a);
     $("mSecond").textContent = fmt(b);
     $("mTotal").textContent = fmt(round(a + b));
+    $("mPay").textContent = fmtMoney(round(a + b) * getPayRate());
     renderEntries(y, m);
   }
 
@@ -664,6 +685,7 @@
     $("sTenant").value = c.tenantId || "";
     $("sBook").value = c.workbookUrl || "";
     $("redirectUri").textContent = window.Excel.redirectUri();
+    $("sRate").value = getPayRate();
   }
 
   function saveSettingsForm() {
@@ -785,6 +807,12 @@
     $("syncBadge").addEventListener("click", function () { syncNow(false); });
     $("csvBtn").addEventListener("click", downloadCsv);
     $("saveSettings").addEventListener("click", saveSettingsForm);
+    $("sRate").addEventListener("change", function () {
+      setPayRate($("sRate").value);
+      $("sRate").value = getPayRate();
+      renderPeriod();
+      renderMonth();
+    });
     loadSettingsForm();
 
     if (imported) applyImported();

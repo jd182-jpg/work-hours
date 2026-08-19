@@ -11,6 +11,9 @@ current numbers without you sending anything.
 - Entries save on the device first, then upload, so a dead signal never loses a day
 - Logging from more than one device works: every sync pulls the workbook down
   too, so a phone and a laptop both stay caught up with what the other logged
+- An hourly pay rate estimates your earnings on screen. It's set in the Pay
+  rate card and lives on this device only — it is never written to the
+  workbook, the CSV backup, or anywhere John or Ashley can see it
 
 ## The workbook
 

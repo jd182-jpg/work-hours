@@ -132,6 +132,21 @@ main {
   margin-left: 6px;
 }
 
+.period-pay {
+  font-size: 15px;
+  font-weight: 600;
+  color: #9fd8b8;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 10px;
+}
+
+.period-pay small {
+  font-weight: 400;
+  color: #9fb6d0;
+  text-transform: lowercase;
+  margin-left: 3px;
+}
+
 .period-meta {
   display: flex;
   justify-content: center;
@@ -191,6 +206,7 @@ label small { font-weight: 400; }
 input[type="date"],
 input[type="time"],
 input[type="text"],
+input[type="number"],
 select {
   width: 100%;
   min-height: 48px;
@@ -319,6 +335,33 @@ button:active { filter: brightness(.95); }
 .totals .grand td:last-child {
   font-size: 21px;
   color: var(--blue);
+}
+
+.totals .pay-row td {
+  border-bottom: 0;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--ok);
+}
+
+.totals .pay-row td:last-child {
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--ok);
+}
+
+.rate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rate-row input {
+  flex: 0 0 auto;
+  width: 110px;
 }
 
 /* ---- entries ---- */

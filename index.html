@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hours">
 <title>Work Hours</title>
-<link rel="manifest" href="manifest.json?v=8">
+<link rel="manifest" href="manifest.json?v=9">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 
@@ -39,6 +39,7 @@
     <div class="period-label">Current pay period</div>
     <div id="periodRange" class="period-range">—</div>
     <div class="period-total"><span id="periodHours">0.00</span><small>hrs</small></div>
+    <div class="period-pay">$<span id="periodPay">0.00</span> <small>estimated</small></div>
     <div class="period-meta">
       <span><b id="periodDays">0</b> days worked</span>
       <span><b id="periodAvg">0.00</b> avg / day</span>
@@ -94,8 +95,22 @@
         <tr><td>1st &ndash; 15th</td><td id="mFirst">0.00</td></tr>
         <tr><td>16th &ndash; end</td><td id="mSecond">0.00</td></tr>
         <tr class="grand"><td>Month total</td><td id="mTotal">0.00</td></tr>
+        <tr class="pay-row"><td>Est. pay</td><td>$<span id="mPay">0.00</span></td></tr>
       </tbody>
     </table>
+    <p class="hint">Estimated pay is for you only — it never leaves this device.</p>
+  </section>
+
+  <!-- Pay rate: local-only, never written to the workbook, CSV, or repo -->
+  <section class="card">
+    <h2>Pay rate</h2>
+    <label for="sRate">Hourly rate</label>
+    <div class="rate-row">
+      $<input type="number" id="sRate" min="0" step="0.01" inputmode="decimal" value="40">
+      <span class="hint">/ hr</span>
+    </div>
+    <p class="hint">Used only to estimate your pay on this screen. Never sent to Excel,
+      the CSV backup, or anywhere else.</p>
   </section>
 
   <!-- Entries -->
@@ -140,8 +155,8 @@
 
 </main>
 
-<script src="config.js?v=8"></script>
-<script src="excel.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="excel.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
