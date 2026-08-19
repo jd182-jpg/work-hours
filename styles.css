@@ -191,6 +191,21 @@ main {
   padding: 4px 6px;
 }
 
+.clock-edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clock-edit-row input[type="time"] {
+  width: auto;
+  min-height: 36px;
+  padding: 4px 8px;
+  font-size: 15px;
+}
+
 /* ---- forms ---- */
 
 label {

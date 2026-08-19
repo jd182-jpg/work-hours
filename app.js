@@ -447,6 +447,13 @@
 
     if (tick) { clearInterval(tick); tick = null; }
 
+    // Any render (a fresh clock-in, a saved edit, a cancel) lands back on the
+    // plain display -- edit mode is not something that should survive a
+    // refresh triggered from somewhere else.
+    $("clockStartDisplay").hidden = false;
+    $("clockStartEdit").hidden = true;
+    $("clockEditError").hidden = true;
+
     if (!c) {
       btn.textContent = "Clock In";
       btn.classList.remove("running");
@@ -466,6 +473,46 @@
     };
     paint();
     tick = setInterval(paint, 1000);
+  }
+
+  function openClockEdit() {
+    var c = clockState();
+    if (!c) return;
+    $("clockStartInput").value = c.hhmm;
+    $("clockEditError").hidden = true;
+    $("clockStartDisplay").hidden = true;
+    $("clockStartEdit").hidden = false;
+    $("clockStartInput").focus();
+  }
+
+  function closeClockEdit() {
+    $("clockStartEdit").hidden = true;
+    $("clockEditError").hidden = true;
+    $("clockStartDisplay").hidden = false;
+  }
+
+  // Corrects a forgotten-to-clock-in moment without restarting the session:
+  // rewrites both the display time and the real timestamp the live counter
+  // and the eventual Clock Out entry are built from, so nothing drifts out
+  // of sync with what gets logged.
+  function saveClockStart(hhmm) {
+    var c = clockState();
+    if (!c || !hhmm) return;
+
+    if (c.date === todayISO() && minutes(hhmm) > minutes(nowHHMM())) {
+      var err = $("clockEditError");
+      err.textContent = "Start time can't be in the future.";
+      err.hidden = false;
+      $("clockStartInput").value = c.hhmm;
+      return;
+    }
+
+    var p = parseISO(c.date);
+    var mins = minutes(hhmm);
+    c.hhmm = hhmm;
+    c.at = new Date(p.y, p.m - 1, p.d, Math.floor(mins / 60), mins % 60).toISOString();
+    localStorage.setItem(CLOCK, JSON.stringify(c));
+    renderClock();
   }
 
   /* -- form --------------------------------------------------------------- */
@@ -793,6 +840,11 @@
     $("clockCancel").addEventListener("click", function () {
       localStorage.removeItem(CLOCK);
       renderClock();
+    });
+    $("clockEditBtn").addEventListener("click", openClockEdit);
+    $("clockStartDone").addEventListener("click", closeClockEdit);
+    $("clockStartInput").addEventListener("change", function () {
+      saveClockStart($("clockStartInput").value);
     });
 
     $("entryList").addEventListener("click", function (ev) {

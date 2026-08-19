@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hours">
 <title>Work Hours</title>
-<link rel="manifest" href="manifest.json?v=10">
+<link rel="manifest" href="manifest.json?v=11">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 
@@ -50,8 +50,20 @@
   <section class="card">
     <button id="clockBtn" class="clock-btn" type="button">Clock In</button>
     <div id="clockStatus" class="clock-status" hidden>
-      Started <b id="clockStart">—</b> · <span id="clockElapsed">0:00:00</span>
-      <button id="clockCancel" class="link-btn" type="button">cancel</button>
+      <div id="clockStartDisplay">
+        Started <b id="clockStart">—</b>
+        <button id="clockEditBtn" class="link-btn" type="button">edit</button>
+      </div>
+      <div id="clockStartEdit" class="clock-edit-row" hidden>
+        Started
+        <input type="time" id="clockStartInput" aria-label="Edit start time">
+        <button id="clockStartDone" class="link-btn" type="button">done</button>
+      </div>
+      <div id="clockEditError" class="error" hidden></div>
+      <div>
+        <span id="clockElapsed">0:00:00</span>
+        <button id="clockCancel" class="link-btn" type="button">cancel</button>
+      </div>
     </div>
   </section>
 
@@ -155,8 +167,8 @@
 
 </main>
 
-<script src="config.js?v=10"></script>
-<script src="excel.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="excel.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

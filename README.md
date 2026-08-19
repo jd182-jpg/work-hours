@@ -153,10 +153,16 @@ registration. Stop the server with Ctrl-C.
 ## Daily use
 
 Tap **Clock In** when you start. The timer keeps running if you close the app or
-your phone restarts. Tap **Clock Out** when you finish and the times drop into
-the form, where you can add a note and tap **Save Entry**.
+your phone restarts. Forgot to tap it on time? Tap **edit** next to "Started" to
+correct the time while it's still running; the live counter and the eventual
+entry both pick up the fix. Tap **Clock Out** when you finish and the times
+drop into the form, where you can add a note and tap **Save Entry**.
 
 Or skip the timer and fill in Date, Time In, Time Out yourself.
+
+The running timer is local to the device you started it on, unlike saved
+entries. Starting on your phone and finishing on your laptop won't work; stick
+to one device for a given clock-in.
 
 An amber dot next to an entry means it has not reached the workbook yet. It
 retries on its own the next time the app opens, or you can tap the badge in the

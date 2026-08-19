@@ -4,10 +4,13 @@ Build the live work-hours workbook.
 
 Creates a .xlsx with two sheets:
 
-  Summary    Current pay period at a glance, then a month-by-month grid with
-             the 1st-15th subtotal, the 16th-EOM subtotal, and the month total.
-             Every number is a live formula driven off the Hours Log table, so
-             the totals update themselves the moment a row lands.
+  Summary    Current pay period at a glance, then a month-by-month grid that
+             lists only months with logged hours -- a dynamic array formula
+             spills in each one as it appears, with the 1st-15th subtotal,
+             the 16th-EOM subtotal, and the month total. Everything here is a
+             live formula driven off the Hours Log table, so it updates
+             itself the moment a row lands; nothing about this sheet needs to
+             be regenerated when a new month starts.
 
   Hours Log  A table named HoursLog holding one row per day worked:
              Date, Day, Time In, Time Out, Hours, Period, Notes.
@@ -23,6 +26,7 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.formula import ArrayFormula
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 # Leggett house palette: navy ground, blue accent.
@@ -31,9 +35,6 @@ BLUE = "2E6FB7"
 LIGHT = "EAF1F9"
 RULE = "C9D6E4"
 GREY = "6B7A8C"
-
-MONTHS = ["January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December"]
 
 HEADERS = ["Date", "Day", "Time In", "Time Out", "Hours", "Period", "Notes"]
 
@@ -54,71 +55,107 @@ def build_summary(ws, year):
         ws.column_dimensions[col].width = 16
     ws.column_dimensions["E"].width = 3
 
-    ws["A1"] = "Work Hours"
+    ws["A1"] = "Jackson's Hours"
     ws["A1"].font = Font(bold=True, size=18, color=NAVY)
-    ws["A2"] = "Logged from the phone app. Totals below are live formulas."
-    ws["A2"].font = Font(size=10, color=GREY, italic=True)
     ws.row_dimensions[1].height = 26
 
-    # ---- Current pay period -------------------------------------------------
-    ws["A4"] = "CURRENT PAY PERIOD"
-    ws["A4"].font = Font(bold=True, size=10, color=BLUE)
+    # ---- Current pay period (row 2 left blank as a spacer) -------------------
+    ws["A3"] = "CURRENT PAY PERIOD"
+    ws["A3"].font = Font(bold=True, size=10, color=BLUE)
 
-    ws["A5"] = "Period start"
-    ws["B5"] = ("=IF(DAY(TODAY())<=15,DATE(YEAR(TODAY()),MONTH(TODAY()),1),"
+    ws["A4"] = "Period start"
+    ws["B4"] = ("=IF(DAY(TODAY())<=15,DATE(YEAR(TODAY()),MONTH(TODAY()),1),"
                 "DATE(YEAR(TODAY()),MONTH(TODAY()),16))")
-    ws["A6"] = "Period end"
-    ws["B6"] = ("=IF(DAY(TODAY())<=15,DATE(YEAR(TODAY()),MONTH(TODAY()),15),"
+    ws["A5"] = "Period end"
+    ws["B5"] = ("=IF(DAY(TODAY())<=15,DATE(YEAR(TODAY()),MONTH(TODAY()),15),"
                 "EOMONTH(TODAY(),0))")
-    ws["A7"] = "Hours this period"
-    ws["B7"] = ('=SUMIFS(HoursLog[Hours],HoursLog[Date],">="&$B$5,'
-                'HoursLog[Date],"<="&$B$6)')
-    ws["A8"] = "Days worked"
-    ws["B8"] = ('=COUNTIFS(HoursLog[Date],">="&$B$5,HoursLog[Date],"<="&$B$6)')
+    ws["A6"] = "Hours this period"
+    ws["B6"] = ('=SUMIFS(HoursLog[Hours],HoursLog[Date],">="&$B$4,'
+                'HoursLog[Date],"<="&$B$5)')
+    ws["A7"] = "Days worked"
+    ws["B7"] = ('=COUNTIFS(HoursLog[Date],">="&$B$4,HoursLog[Date],"<="&$B$5)')
 
-    for row in range(5, 9):
+    for row in range(4, 8):
         ws.cell(row=row, column=1).font = Font(size=11, color=NAVY)
         ws.cell(row=row, column=2).font = Font(bold=True, size=11, color=NAVY)
+    ws["B4"].number_format = "mmm d, yyyy"
     ws["B5"].number_format = "mmm d, yyyy"
-    ws["B6"].number_format = "mmm d, yyyy"
-    ws["B7"].number_format = "0.00"
-    ws["B7"].fill = PatternFill("solid", fgColor=LIGHT)
-    ws["B8"].number_format = "0"
+    ws["B6"].number_format = "0.00"
+    ws["B6"].fill = PatternFill("solid", fgColor=LIGHT)
+    ws["B7"].number_format = "0"
 
-    # ---- Month-by-month grid ------------------------------------------------
-    top = 11
-    ws.cell(row=top - 1, column=1, value="%s BY PAY PERIOD" % year).font = Font(
+    # ---- Month-by-month grid --------------------------------------------------
+    # Column A is a single dynamic-array formula: it spills one row per
+    # distinct month that HoursLog actually has entries for, sorted
+    # chronologically. A month you haven't logged anything for yet simply
+    # never appears -- there is nothing to regenerate or re-push when a new
+    # one starts, the spill just grows on its own the next time this opens.
+    header_row = 10
+    ws.cell(row=header_row - 1, column=1, value="%s BY PAY PERIOD" % year).font = Font(
         bold=True, size=10, color=BLUE)
 
     for idx, label in enumerate(["Month", "1st - 15th", "16th - End", "Month Total"]):
-        style_header(ws.cell(row=top, column=1 + idx, value=label))
+        style_header(ws.cell(row=header_row, column=1 + idx, value=label))
 
-    for i, name in enumerate(MONTHS):
-        r = top + 1 + i
-        m = i + 1
-        first = "DATE(%d,%d,1)" % (year, m)
-        ws.cell(row=r, column=1, value="%s %d" % (name, year))
+    first_row = header_row + 1
+    last_row = first_row + 11
+
+    # Column A is one classic Ctrl+Shift+Enter array formula spanning all 12
+    # reserved rows, not a "spilling" dynamic array. Tested directly against
+    # real Excel: SORT/FILTER/UNIQUE compute correctly here (confirmed via
+    # their _xlfn./_xlfn._xlws. compatibility-prefixed names, required
+    # because a tool other than Excel has to spell out functions added after
+    # the xlsx format's original function table was frozen), but this
+    # environment's spill engine did not expand a dynamic array formula
+    # authored outside Excel past its first row even after a full recalc.
+    # The legacy array-formula mechanism has no such dependency -- each of
+    # the 12 cells evaluates the identical formula and pulls its own element
+    # back out with INDEX/ROW(), so nothing here depends on spill support at
+    # all. A row with no corresponding month reads a blank "" and is skipped
+    # by every dependent formula below it.
+    #
+    # First-of-month is DATE(YEAR(d),MONTH(d),1), not EOMONTH(d,-1)+1: also
+    # tested directly, EOMONTH does not broadcast element-wise over a
+    # table-column array in this position (#VALUE!), even nested inside
+    # FILTER's own argument, while YEAR/MONTH/DATE do.
+    months_expr = (
+        '_xlfn._xlws.SORT(_xlfn.UNIQUE(_xlfn._xlws.FILTER('
+        'DATE(YEAR(HoursLog[Date]),MONTH(HoursLog[Date]),1),'
+        'YEAR(HoursLog[Date])=%d)))' % year)
+    array_ref = "A%d:A%d" % (first_row, last_row)
+    ws.cell(row=first_row, column=1).value = ArrayFormula(
+        array_ref,
+        '=IFERROR(INDEX(%s,ROW()-ROW($A$%d)+1),"")' % (months_expr, first_row))
+    for r in range(first_row, last_row + 1):
+        cell = ws.cell(row=r, column=1)
+        cell.number_format = "mmmm yyyy"
+        cell.font = Font(size=11, color=NAVY)
+
+    # B/C/D are ordinary formulas in every reserved row, not part of the
+    # spill. Each reads whatever landed in its own row's column A: real once
+    # the array has spilled that far, genuinely blank otherwise, so the IF
+    # guard keeps unused rows empty instead of showing stray zeroes.
+    for i in range(12):
+        r = first_row + i
+        a = "A%d" % r
         ws.cell(row=r, column=2, value=(
-            '=SUMIFS(HoursLog[Hours],HoursLog[Date],">="&%s,'
-            'HoursLog[Date],"<="&DATE(%d,%d,15))' % (first, year, m)))
+            '=IF(%s="","",SUMIFS(HoursLog[Hours],HoursLog[Date],">="&%s,'
+            'HoursLog[Date],"<="&(%s+14)))' % (a, a, a)))
         ws.cell(row=r, column=3, value=(
-            '=SUMIFS(HoursLog[Hours],HoursLog[Date],">="&DATE(%d,%d,16),'
-            'HoursLog[Date],"<="&EOMONTH(%s,0))' % (year, m, first)))
-        ws.cell(row=r, column=4, value="=B%d+C%d" % (r, r))
+            '=IF(%s="","",SUMIFS(HoursLog[Hours],HoursLog[Date],">="&(%s+15),'
+            'HoursLog[Date],"<="&EOMONTH(%s,0)))' % (a, a, a)))
+        ws.cell(row=r, column=4, value='=IF(%s="","",B%d+C%d)' % (a, r, r))
 
-        for c in range(1, 5):
+        ws.cell(row=r, column=1).border = Border(bottom=thin)
+        for c in range(2, 5):
             cell = ws.cell(row=r, column=c)
             cell.border = Border(bottom=thin)
-            if c == 1:
-                cell.font = Font(size=11, color=NAVY)
-            else:
-                cell.number_format = "0.00"
-                cell.alignment = Alignment(horizontal="right")
-                cell.font = Font(size=11, bold=(c == 4),
-                                 color=NAVY if c == 4 else GREY)
+            cell.number_format = "0.00"
+            cell.alignment = Alignment(horizontal="right")
+            cell.font = Font(size=11, bold=(c == 4), color=NAVY if c == 4 else GREY)
         ws.cell(row=r, column=4).fill = PatternFill("solid", fgColor=LIGHT)
 
-    total_row = top + 13
+    total_row = first_row + 12
     ws.cell(row=total_row, column=1, value="YEAR TOTAL").font = Font(
         bold=True, size=11, color="FFFFFF")
     for c in range(1, 5):
@@ -127,14 +164,16 @@ def build_summary(ws, year):
         cell.font = Font(bold=True, size=11, color="FFFFFF")
     for c in range(2, 5):
         col = get_column_letter(c)
+        # SUM ignores the "" that unused reserved rows return, so this stays
+        # correct whether 1 month or all 12 have spilled in.
         cell = ws.cell(row=total_row, column=c,
-                       value="=SUM(%s%d:%s%d)" % (col, top + 1, col, top + 12))
+                       value="=SUM(%s%d:%s%d)" % (col, first_row, col, first_row + 11))
         cell.number_format = "0.00"
         cell.alignment = Alignment(horizontal="right")
         cell.fill = PatternFill("solid", fgColor=NAVY)
         cell.font = Font(bold=True, size=11, color="FFFFFF")
 
-    ws.freeze_panes = "A%d" % (top + 1)
+    ws.freeze_panes = "A%d" % first_row
 
 
 def build_log(ws):
