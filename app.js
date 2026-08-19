@@ -245,6 +245,7 @@
       return;
     }
 
+    var rate = getPayRate();
     box.innerHTML = list.map(function (e) {
       return '<div class="entry' + (e.synced ? "" : " unsynced") + '">' +
         '<div class="entry-main">' +
@@ -256,6 +257,7 @@
         '</div>' +
         '<div class="entry-hours">' + fmt(decimalHours(e.tin, e.tout)) +
           (e.synced ? '' : '<span class="dot" title="Not yet in Excel"></span>') +
+          '<div class="entry-pay">$' + fmtMoney(decimalHours(e.tin, e.tout) * rate) + '</div>' +
         '</div>' +
         '<button class="del" type="button" data-id="' + e.id + '" aria-label="Delete entry">&times;</button>' +
       '</div>';
